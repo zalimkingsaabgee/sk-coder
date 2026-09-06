@@ -9,7 +9,7 @@ describe("AI project proposals", () => {
     });
 
     it("rejects an oversized project scaffold", () => {
-        const files = Array.from({ length: 41 }, (_, index) => ({ path: `/src/${index}.ts`, content: "" }));
+        const files = Array.from({ length: 121 }, (_, index) => ({ path: `/src/${index}.ts`, content: "" }));
         const proposal = extractAgentProposal(`<sk-actions>${JSON.stringify([{ type: "project", files }])}</sk-actions>`);
         expect(proposal.actions).toHaveLength(0);
     });

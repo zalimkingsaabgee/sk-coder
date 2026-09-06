@@ -10,6 +10,10 @@ const terminalDisconnectLingerMs = 10 * 60 * 1000;
 const terminalReplayBufferSize = 20000;
 const terminalReplayBuffers = new Map<string, { buffer: string[]; timer: NodeJS.Timeout | null }>();
 
+function replayKey(sessionId: string, terminalId: string) {
+    return `${sessionId}:${terminalId}`;
+}
+
 export function setupTerminalWs(server: Server) {
     const wss = new WebSocketServer({ noServer: true, handleProtocols: (protocols) => protocols.has("sk-coder-v1") ? "sk-coder-v1" : false });
     server.on("upgrade", async (request, socket, head) => {
@@ -39,9 +43,10 @@ export function setupTerminalWs(server: Server) {
             let sentBytes = 0;
             let terminal: { write: (data: string) => void; resize: (cols: number, rows: number) => void; detach: () => void; kill: () => void; } | null = null;
             let closed = false;
+            const terminalReplayKey = replayKey(requestedSessionId, terminalId);
             const pendingMessages: Array<{ type?: string; command?: string; data?: string; cols?: number; rows?: number; }> = [];
-            const replayState = terminalReplayBuffers.get(requestedSessionId) ?? { buffer: [], timer: null };
-            terminalReplayBuffers.set(requestedSessionId, replayState);
+            const replayState = terminalReplayBuffers.get(terminalReplayKey) ?? { buffer: [], timer: null };
+            terminalReplayBuffers.set(terminalReplayKey, replayState);
             if (replayState.timer) {
                 clearTimeout(replayState.timer);
                 replayState.timer = null;
@@ -78,7 +83,7 @@ export function setupTerminalWs(server: Server) {
                     clearTimeout(replayState.timer);
                 replayState.timer = setTimeout(() => {
                     terminal?.detach();
-                    terminalReplayBuffers.delete(requestedSessionId);
+                    terminalReplayBuffers.delete(terminalReplayKey);
                 }, terminalDisconnectLingerMs);
             });
             const session = await getWorkspaceSession(requestedSessionId);

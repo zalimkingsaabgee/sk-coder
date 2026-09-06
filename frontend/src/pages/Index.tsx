@@ -14,9 +14,11 @@ import CodeEditor from "@/components/ide/CodeEditor";
 const loadAIChatPanel = () => import("@/components/ide/AIChatPanel");
 const loadCloudShell = () => import("@/components/ide/CloudShell");
 const loadApkEditor = () => import("@/components/ide/ApkEditor");
+const loadTerminal = () => import("@/components/ide/Terminal");
 const AIChatPanel = lazy(loadAIChatPanel);
 const CloudShell = lazy(loadCloudShell);
 const ApkEditor = lazy(loadApkEditor);
+const Terminal = lazy(loadTerminal);
 function PanelLoading() {
     return <div className="panel-skeleton" aria-label="Loading workspace panel"><span/><span/><span/></div>;
 }
@@ -41,6 +43,7 @@ export default function IndexPage() {
             void loadAIChatPanel();
             void loadCloudShell();
             void loadApkEditor();
+            void loadTerminal();
         };
         const idleWindow = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number; cancelIdleCallback?: (handle: number) => void };
         if (idleWindow.requestIdleCallback) {
@@ -96,6 +99,9 @@ export default function IndexPage() {
             </div>)}
           {activePanel === "ai" && (<div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
               <Suspense fallback={<PanelLoading />}><AIChatPanel /></Suspense>
+            </div>)}
+          {activePanel === "terminal" && (<div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+              <Suspense fallback={<PanelLoading />}><Terminal /></Suspense>
             </div>)}
           {activePanel === "cloud" && (<div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
               <Suspense fallback={<PanelLoading />}><CloudShell /></Suspense>
