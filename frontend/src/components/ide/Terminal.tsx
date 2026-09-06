@@ -458,22 +458,26 @@ export default function MultiTerminal() {
             }, 0);
             return;
         }
-        if (previousSessionId)
-            localStorage.removeItem(workspaceStageRevisionKey(previousSessionId));
-        localStorage.removeItem("sk-coder-workspace-session-id");
-        localStorage.removeItem("sk-coder-workspace-terminal-access");
-        projectSessionIdRef.current = null;
-        projectTerminalAccessTokenRef.current = null;
-        projectStagedTreeRef.current = null;
-        workspaceStagingFlightRef.current = null;
-        clearTerminalLeases();
-        for (const [shellTabId, socket] of terminalSocketsRef.current) {
-            socket.close();
-            terminalSocketsRef.current.delete(shellTabId);
-            resetShellTranscript(shellTabId);
+        const activeSocket = terminalSocketsRef.current.get(tabId);
+        terminalSocketsRef.current.delete(tabId);
+        activeSocket?.close();
+        const hasOtherActiveSockets = terminalSocketsRef.current.size > 0;
+        if (!hasOtherActiveSockets) {
+            if (previousSessionId)
+                localStorage.removeItem(workspaceStageRevisionKey(previousSessionId));
+            localStorage.removeItem("sk-coder-workspace-session-id");
+            localStorage.removeItem("sk-coder-workspace-terminal-access");
+            projectSessionIdRef.current = null;
+            projectTerminalAccessTokenRef.current = null;
+            projectStagedTreeRef.current = null;
+            workspaceStagingFlightRef.current = null;
+            clearTerminalLeases();
         }
         setWorkspaceConnection("checking");
-        window.setTimeout(() => connectShell(tabId), 0);
+        window.setTimeout(() => {
+            recoveringTabsRef.current.delete(tabId);
+            void connectShell(tabId);
+        }, 0);
     }
     async function connectShell(tabId: string, requestedSessionId?: string | null) {
         if (!settings.backend.enabled || terminalSocketsRef.current.has(tabId) || connectingTabsRef.current.has(tabId))
@@ -677,7 +681,7 @@ export default function MultiTerminal() {
             void heartbeatWorkspace(workspaceLifecycle.id, workspaceLifecycle.retentionMode)
                 .then(setWorkspaceLifecycle)
                 .catch(() => undefined);
-        }, 60000);
+        }, 30000);
         return () => window.clearInterval(interval);
     }, [workspaceLifecycle?.id, workspaceLifecycle?.retentionMode]);
     useEffect(() => {
@@ -760,6 +764,11 @@ export default function MultiTerminal() {
                 return previous;
             return { ...previous, [tabId]: { ...current, lines: [...current.lines.slice(-600), ...accepted.map((content) => mkLine(type, content))] } };
         });
+        if (workspaceLifecycle && type !== "input") {
+            void heartbeatWorkspace(workspaceLifecycle.id, workspaceLifecycle.retentionMode)
+                .then(setWorkspaceLifecycle)
+                .catch(() => undefined);
+        }
     }
     function publishExecutionResult(result: ExecResponse) {
         setPreviewResult({
