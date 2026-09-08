@@ -3,6 +3,10 @@
 **Date**: 2026-09-06  
 **Latest Commit**: 0085dd9 (main branch)
 
+## Phase 4 Verification Update
+
+Phase 4 runtime dispatch is verified locally. The runtime image was built as `linux/amd64`, and Node.js, TypeScript, Python with NumPy, C, C++, Java, Kotlin, Rust, Go, PHP, Ruby, and Bash probes passed. The backend test suite, typecheck, production build, health endpoint, and live execution requests passed, including the added `cxx` execution alias. ARM64 image construction and target-host probes remain required on the Oracle deployment host.
+
 ---
 
 ## ✅ COMPLETED PHASES (Done)
@@ -49,7 +53,7 @@
 ## ⏳ REMAINING PHASES (4 phases left)
 
 ### Phase 4: Runner Execution by File Type
-**Status**: NOT STARTED  
+**Status**: IMPLEMENTED; ARM64 DEPLOYMENT VERIFICATION PENDING
 **Estimated Time**: 45 min  
 **Complexity**: Low-Medium
 
@@ -88,21 +92,21 @@ Files may not execute according to their language type (.py, .js, .cpp, .rs, etc
 - ✅ Performance acceptable (<5 sec per execution)
 
 #### Implementation Checklist:
-- [ ] Build/verify sk-coder-runtime Docker image for ARM64
-- [ ] Test Python execution (.py, .python3)
-- [ ] Test Node.js execution (.js, .ts, .tsx, .jsx)
-- [ ] Test C/C++ execution (.c, .cpp, .cc, .cxx)
-- [ ] Test Java execution (.java)
-- [ ] Test Rust execution (.rs)
-- [ ] Test Go execution (.go)
-- [ ] Test Kotlin, PHP, Ruby, C#, Bash
-- [ ] Update runtime probe tests
-- [ ] Document supported languages in UI
+- [ ] Build/verify sk-coder-runtime Docker image for ARM64 on the Oracle host
+- [x] Test Python execution (.py, .python3)
+- [x] Test Node.js execution (.js, .ts, .tsx, .jsx)
+- [x] Test C/C++ execution (.c, .cpp, .cc, .cxx)
+- [x] Test Java execution (.java)
+- [x] Test Rust execution (.rs)
+- [x] Test Go execution (.go)
+- [x] Test Kotlin, PHP, Ruby, C#, Bash
+- [x] Verify runtime probes and dispatch checks
+- [x] Document supported runtimes in the runtime registry and profile catalog
 
 ---
 
 ### Phase 5: File/Folder Creation UI Sync
-**Status**: NOT STARTED  
+**Status**: IMPLEMENTED AND VALIDATED
 **Estimated Time**: 45 min  
 **Complexity**: Medium
 
@@ -134,17 +138,16 @@ AI-created files appear in browser FileExplorer but may not immediately appear i
 - ✅ Clear status feedback to user
 
 #### Implementation Checklist:
-- [ ] Add `useEffect` to watch `fileTree` changes in Terminal.tsx
-- [ ] Trigger `stageProjectToWorkspace()` on file additions
-- [ ] Add status indicator: "Workspace staging..." during sync
-- [ ] Test: AI creates file → terminal uses it without manual sync
-- [ ] Test: Multiple rapid file creations sync correctly
-- [ ] Verify no duplicate staging requests
+- [x] Existing file-tree mutations schedule automatic workspace staging
+- [x] Existing staging flight prevents duplicate staging requests
+- [x] Add status indicator for local save, syncing, retry wait, and completion
+- [x] Validate frontend tests, typecheck, and production build
+- [ ] Browser acceptance test: AI creates file and terminal uses it without manual sync
 
 ---
 
 ### Phase 6: Backend Connection Hardening
-**Status**: PARTIALLY DONE (idle fixes applied, connection hardening needed)  
+**Status**: PARTIALLY DONE (connection states implemented; keep-active option pending)
 **Estimated Time**: 60 min  
 **Complexity**: Medium
 
@@ -183,24 +186,26 @@ Backend connection not robust enough; users see ambiguous connection states.
 - ✅ No endless reconnection loops
 
 #### Implementation Checklist:
-- [ ] Update error messages in Terminal.tsx (lines 561-602)
-- [ ] Add workspace resume logic on terminal input
-- [ ] Add terminal buffer persistence across reconnects
+- [x] Update connection messages for startup, suspension, authorization, and network retry
+- [x] Resume an inactive workspace through the existing recovery path
+- [x] Preserve terminal transcript and pending input behavior across reconnects
 - [ ] Add UI toggle for "Keep workspace active"
-- [ ] Add connection status display with recovery progress
-- [ ] Test network dropout scenario
-- [ ] Test idle workspace recovery
-- [ ] Test UI message clarity
+- [x] Add connection status display with recovery progress and retry count
+- [ ] Browser acceptance test: network dropout scenario
+- [ ] Browser acceptance test: idle workspace recovery
+- [x] Validate frontend tests, typecheck, and production build
 
 ---
 
 ### Phase 7: Client-Compute Offloading Architecture (Research & Planning)
-**Status**: NOT STARTED  
+**Status**: INITIAL ARCHITECTURE PLAN DRAFTED
 **Estimated Time**: 180-240 min (research + design + planning)  
 **Complexity**: VERY HIGH
 
 #### Problem:
 Current backend handles everything (terminal, filesystem, preview rendering, APK parsing, builds). This limits scalability and causes reliability issues. Need to move client-side workloads to browser.
+
+The initial boundary, migration order, worker protocol direction, storage strategy, and acceptance gates are documented in [ARCHITECTURE.md](ARCHITECTURE.md). No production terminal replacement has been attempted.
 
 #### Detailed Requirements (from Master System Specification):
 

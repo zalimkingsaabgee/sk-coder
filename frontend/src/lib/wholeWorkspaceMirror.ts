@@ -14,6 +14,7 @@ let retryTimer: number | null = null;
 let mirrorFlight: Promise<void> | null = null;
 let queuedTree: FileNode[] | null = null;
 let retryDelayMs = 15_000;
+type MirrorStatus = "syncing" | "waiting" | "complete";
 
 type StageSource = {
     path: string;
@@ -158,7 +159,7 @@ export function markWholeWorkspaceDeletionPending(pending: boolean) {
         removeStoredValue(DELETE_PENDING_KEY);
 }
 
-export function scheduleWholeWorkspaceMirror(nodes: FileNode[], retentionMode: WorkspaceRetentionMode = "three-days", delayMs = 1800) {
+export function scheduleWholeWorkspaceMirror(nodes: FileNode[], retentionMode: WorkspaceRetentionMode = "three-days", delayMs = 1800, onStatus?: (status: MirrorStatus) => void) {
     queuedTree = nodes;
     if (timer !== null)
         window.clearTimeout(timer);
@@ -168,6 +169,7 @@ export function scheduleWholeWorkspaceMirror(nodes: FileNode[], retentionMode: W
         queuedTree = null;
         if (!nextTree)
             return;
+        onStatus?.("syncing");
         const current = mirrorFlight ?? Promise.resolve();
         const scheduledFlight = current.catch(() => undefined).then(async () => {
             await mirrorWholeWorkspace(nextTree, retentionMode);
@@ -177,6 +179,7 @@ export function scheduleWholeWorkspaceMirror(nodes: FileNode[], retentionMode: W
             if (mirrorFlight === scheduledFlight)
                 mirrorFlight = null;
         }).catch(() => {
+            onStatus?.("waiting");
             if (!queuedTree)
                 queuedTree = nextTree;
             if (retryTimer !== null)
@@ -192,6 +195,7 @@ export function scheduleWholeWorkspaceMirror(nodes: FileNode[], retentionMode: W
         });
         void scheduledFlight.then(() => {
             retryDelayMs = 15_000;
+            onStatus?.("complete");
         }).catch(() => undefined);
     }, Math.max(300, delayMs));
 }

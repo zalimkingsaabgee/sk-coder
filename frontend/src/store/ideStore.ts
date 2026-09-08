@@ -285,7 +285,7 @@ type IDEState = {
     selectionMode: boolean;
     batchOperation: "copy" | "move" | null;
     transferStatus: {
-        kind: "import" | "export";
+        kind: "import" | "export" | "stage";
         stage: string;
         completed: number;
         total: number;
@@ -767,7 +767,15 @@ export const useIDEStore = create<IDEState & IDEActions>()(persist((set, get) =>
         const { fileTree, settings } = get();
         if (!settings.backend.enabled)
             return;
-        scheduleWholeWorkspaceMirror(fileTree);
+        set({ transferStatus: { kind: "stage", stage: "File saved locally, syncing to workspace...", completed: 0, total: 0 } });
+        scheduleWholeWorkspaceMirror(fileTree, "three-days", 1800, (status) => {
+            if (status === "syncing")
+                set({ transferStatus: { kind: "stage", stage: "Syncing workspace files...", completed: 0, total: 0 } });
+            else if (status === "waiting")
+                set({ transferStatus: { kind: "stage", stage: "Workspace sync waiting for capacity or connection...", completed: 0, total: 0 } });
+            else if (get().transferStatus?.kind === "stage")
+                set({ transferStatus: null });
+        });
     },
     loadWorkspaceFromBackend: async () => {
         const restoredTree = await restoreIndexedContent(get().fileTree);

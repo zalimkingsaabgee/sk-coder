@@ -34,7 +34,7 @@ type TabState = {
     cwd: string;
     running: boolean;
 };
-type WorkspaceConnectionState = "checking" | "connected" | "waiting" | "offline" | "capacity";
+type WorkspaceConnectionState = "checking" | "connected" | "starting" | "resuming" | "auth" | "waiting" | "offline" | "capacity";
 type TerminalLease = {
     sessionId: string;
     terminalId: string;
@@ -451,7 +451,7 @@ export default function MultiTerminal() {
             const activeSocket = terminalSocketsRef.current.get(tabId);
             terminalSocketsRef.current.delete(tabId);
             activeSocket?.close();
-            setWorkspaceConnection("checking");
+            setWorkspaceConnection("resuming");
             window.setTimeout(() => {
                 recoveringTabsRef.current.delete(tabId);
                 void connectShell(tabId, previousSessionId);
@@ -473,7 +473,7 @@ export default function MultiTerminal() {
             workspaceStagingFlightRef.current = null;
             clearTerminalLeases();
         }
-        setWorkspaceConnection("checking");
+        setWorkspaceConnection("auth");
         window.setTimeout(() => {
             recoveringTabsRef.current.delete(tabId);
             void connectShell(tabId);
@@ -499,7 +499,7 @@ export default function MultiTerminal() {
             catch (error) {
                 connectingTabsRef.current.delete(tabId);
                 const message = error instanceof Error ? error.message : "";
-                setWorkspaceConnection(/shared server workplace capacity is busy|existing work remains protected/i.test(message) ? "capacity" : "waiting");
+                setWorkspaceConnection(/shared server workplace capacity is busy|existing work remains protected/i.test(message) ? "capacity" : /runtime service|backend|docker/i.test(message) ? "starting" : "waiting");
                 queueTabReconnect(tabId, savedSessionId);
                 return;
             }
@@ -594,10 +594,12 @@ export default function MultiTerminal() {
                 terminalSocketsRef.current.delete(tabId);
                 connectingTabsRef.current.delete(tabId);
                 if (/workspace access is not valid|invalid.*workspace.*(access|session)|unauthorized|forbidden|401|403/i.test(message)) {
+                    setWorkspaceConnection("auth");
                     recoverShell(tabId);
                     return;
                 }
                 if (/workspace runtime is not active|no such container/i.test(message)) {
+                    setWorkspaceConnection("resuming");
                     recoverShell(tabId, undefined, true);
                     return;
                 }
@@ -642,7 +644,7 @@ export default function MultiTerminal() {
             if (disposed)
                 return;
             if (!status.ready) {
-                setWorkspaceConnection("waiting");
+                setWorkspaceConnection("starting");
                 retry = window.setTimeout(() => void connect(), 2000);
                 return;
             }
@@ -1248,7 +1250,10 @@ export default function MultiTerminal() {
 
       {activeType === "shell" && workspaceConnection !== "connected" && (<div className="terminal-workspace-notice" role="status">
           {workspaceConnection === "checking" && "Checking SK Shell connection…"}
-          {workspaceConnection === "waiting" && "Restoring the workspace connection…"}
+          {workspaceConnection === "starting" && "Backend service is starting. Retrying SK Shell…"}
+          {workspaceConnection === "resuming" && "Workspace paused. Resuming your private workspace…"}
+          {workspaceConnection === "auth" && "Session expired. Creating a new workspace session…"}
+          {workspaceConnection === "waiting" && `Connection lost. Reconnecting${(reconnectAttemptsRef.current.get(activeTab) ?? 0) > 0 ? ` (attempt ${reconnectAttemptsRef.current.get(activeTab)})` : ""}…`}
           {workspaceConnection === "offline" && "Workspace server is unavailable. Your browser project remains available while it retries."}
           {workspaceConnection === "capacity" && "Server workspace capacity is full. Your project remains in browser storage and will retry when server space is available."}
         </div>)}
