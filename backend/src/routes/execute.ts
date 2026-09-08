@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import { authorizeTerminalSession, beginWorkspaceStage, cancelWorkspaceDeletion, commitWorkspaceStage, createWorkspaceSession, getWorkspaceLifecycle, getWorkspaceManifest, getWorkspaceStageStatus, installWorkspaceDependencies, probeRuntimeImage, probeTerminalTools, recordWorkspaceActivity, removeWorkspaceStage, runCodeInWorkspace, runEphemeralCode, runWorkspaceCommand, scheduleWorkspaceDeletion, syncWorkspaceFiles, updateWorkspaceRetention, workspaceStatus, writeWorkspaceStageChunk } from "../lib/sessionManager.js";
+import { authorizeTerminalSession, beginWorkspaceStage, cancelWorkspaceDeletion, commitWorkspaceStage, createWorkspaceSession, getWorkspaceLifecycle, getWorkspaceManifest, getWorkspaceStageStatus, installWorkspaceDependencies, probeRuntimeImage, probeTerminalTools, recordWorkspaceActivity, removeWorkspaceStage, runCodeInWorkspace, runEphemeralCode, runWorkspaceCommand, scheduleWorkspaceDeletion, syncWorkspaceFiles, updateWorkspaceKeepAlive, updateWorkspaceRetention, workspaceStatus, writeWorkspaceStageChunk } from "../lib/sessionManager.js";
 import type { RetentionMode } from "../lib/workspaceRegistry.js";
 import { installedRuntimes } from "../lib/runtimeRegistry.js";
 import { runtimeProfileCatalog } from "../lib/runtimeProfileResolver.js";
@@ -36,7 +36,7 @@ router.post("/execute/sessions", async (req, res) => {
     try {
         const requestedRetention = req.body?.retentionMode;
         const retentionMode: RetentionMode = requestedRetention === "four-hours" ? "four-hours" : "three-days";
-        const session = await createWorkspaceSession({ retentionMode, startRuntime: req.body?.startRuntime !== false });
+        const session = await createWorkspaceSession({ retentionMode, startRuntime: req.body?.startRuntime !== false, keepAlive: req.body?.keepAlive === true });
         const lifecycle = await getWorkspaceLifecycle(session.id);
         res.status(201).json({ id: session.id, terminalAccessToken: session.terminalAccessToken, cwd: "/", expiresAt: lifecycle.expiresAt, retentionMode: lifecycle.retentionMode, quotaBytes: lifecycle.quotaBytes, tier: "oracle-workspace" });
     }
@@ -71,10 +71,13 @@ router.post("/execute/sessions/:id/heartbeat", async (req, res) => {
 });
 router.put("/execute/sessions/:id/retention", async (req, res) => {
     const requestedRetention = req.body?.retentionMode;
-    if (requestedRetention !== "three-days" && requestedRetention !== "four-hours")
+    if (requestedRetention !== undefined && requestedRetention !== "three-days" && requestedRetention !== "four-hours")
         return res.status(400).json({ error: "retentionMode must be three-days or four-hours" });
     try {
-        res.json({ ...(await updateWorkspaceRetention(req.params.id, requestedRetention)), tier: "oracle-workspace" });
+        const lifecycle = requestedRetention === undefined
+            ? await updateWorkspaceKeepAlive(req.params.id, req.body?.keepAlive === true)
+            : await updateWorkspaceRetention(req.params.id, requestedRetention);
+        res.json({ ...lifecycle, tier: "oracle-workspace" });
     }
     catch (error) {
         res.status(404).json({ error: error instanceof Error ? error.message : "Workspace session not found." });

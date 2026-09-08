@@ -7,7 +7,7 @@ import { createReadStream } from "node:fs";
 import { dirname, join, normalize, relative, resolve } from "node:path";
 import { appendLimitedOutput } from "./outputLimit.js";
 import { BACKEND_INSTANCE_ID, COMMAND_TIMEOUT_MS, DEPENDENCY_INSTALL_NETWORK_MODE, DEPENDENCY_INSTALL_NETWORK_NAME, DEPENDENCY_INSTALL_PROXY_URL, DEPENDENCY_INSTALL_TIMEOUT_MS, HOST_LOAD_MAX, HOST_MEMORY_RESERVE_BYTES, OUTPUT_MAX_BYTES, PACKAGE_CACHE_MAX_BYTES, PACKAGE_CACHE_ROOT, RUNTIME_IMAGE, RUNNER_MAX_COUNT, RUNNER_QUEUE_MAX_COUNT, RUNNER_SCRATCH_MAX_BYTES, SESSION_IDLE_MINUTES, SESSION_MAX_BYTES, SESSION_MAX_COUNT, SESSION_TTL_HOURS, STAGING_MAX_BYTES, WORKSPACE_INITIAL_RESERVATION_BYTES, WORKSPACE_INSTALL_RESERVE_BYTES, WORKSPACE_MAX_BYTES, WORKSPACE_NETWORK_MODE, WORKSPACE_ROOT, WORKSPACE_SAFETY_RESERVE_BYTES } from "./backendConfig.js";
-import { cancelWorkspaceDelete, createWorkspaceRecord, getWorkspaceRecord, incrementWorkspaceRevision, listExpiredWorkspaceRecords, listScheduledWorkspaceRecords, listWorkspaceRecords, markWorkspaceDeleted, scheduleWorkspaceDelete, setWorkspaceRetention, touchWorkspaceRecord, type RetentionMode, type WorkspaceRecord } from "./workspaceRegistry.js";
+import { cancelWorkspaceDelete, createWorkspaceRecord, getWorkspaceRecord, incrementWorkspaceRevision, listExpiredWorkspaceRecords, listScheduledWorkspaceRecords, listWorkspaceRecords, markWorkspaceDeleted, scheduleWorkspaceDelete, setWorkspaceKeepAlive, setWorkspaceRetention, touchWorkspaceRecord, type RetentionMode, type WorkspaceRecord } from "./workspaceRegistry.js";
 import { createTerminalAccessToken, hashTerminalAccessToken, matchesTerminalAccessToken } from "./terminalAccess.js";
 import { beginRuntimeOperationFinalization, completeRuntimeOperationFinalization, createRuntimeOperation, failRuntimeOperationFinalization, listExpiredRuntimeOperations, updateRuntimeOperationExpiry } from "./operationRegistry.js";
 import { reconcileSharedCapacity, reportSharedCapacityUsage } from "./capacityLedger.js";
@@ -368,7 +368,7 @@ async function suspendWorkspaceRuntime(id: string) {
 async function suspendIdleWorkspaceRuntimes(now = Date.now()) {
     const cutoff = now - SESSION_IDLE_MINUTES * 60 * 1000;
     for (const record of await listWorkspaceRecords()) {
-        if (record.state !== "active" || record.lastHeartbeatAt >= cutoff)
+        if (record.state !== "active" || record.keepAlive || record.lastHeartbeatAt >= cutoff)
             continue;
         if ((activeInteractiveTerminals.get(record.id) ?? 0) > 0)
             continue;
@@ -400,6 +400,7 @@ export async function ensureDockerReady() {
 export async function createWorkspaceSession(options?: {
     retentionMode?: RetentionMode;
     startRuntime?: boolean;
+    keepAlive?: boolean;
 }) {
     return queueWorkspaceLifecycle(async () => {
         const startRuntime = options?.startRuntime !== false;
@@ -417,7 +418,7 @@ export async function createWorkspaceSession(options?: {
         const workspacePath = workspacePathFor(id);
         const retentionMode = options?.retentionMode === "four-hours" ? "four-hours" : "three-days";
         try {
-            const record = await createWorkspaceRecord(id, SESSION_MAX_BYTES, retentionMode, hashTerminalAccessToken(terminalAccessToken));
+            const record = await createWorkspaceRecord(id, SESSION_MAX_BYTES, retentionMode, hashTerminalAccessToken(terminalAccessToken), options?.keepAlive === true);
             await mkdir(workspacePath, { recursive: true, mode: 0o777 });
             await chmod(workspacePath, 0o777);
             await createRuntimeOperation({ id: workplaceOperationId(id), ownerId: id, kind: "workplace", resources: [`path:${workspacePath}`], reservationBytes: WORKSPACE_INITIAL_RESERVATION_BYTES, expiresAt: record.expiresAt });
@@ -1038,6 +1039,12 @@ export async function updateWorkspaceRetention(id: string, retentionMode: Retent
     const session = sessions.get(id);
     if (session)
         session.retentionMode = retentionMode;
+    return record;
+}
+export async function updateWorkspaceKeepAlive(id: string, keepAlive: boolean) {
+    const record = await setWorkspaceKeepAlive(id, keepAlive);
+    if (!record)
+        throw new Error("Workspace session not found or expired.");
     return record;
 }
 export async function scheduleWorkspaceDeletion(id: string) {

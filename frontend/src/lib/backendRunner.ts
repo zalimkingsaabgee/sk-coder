@@ -18,6 +18,7 @@ export type WorkspaceLifecycle = {
     lastHeartbeatAt: number;
     expiresAt: number;
     retentionMode: WorkspaceRetentionMode;
+    keepAlive: boolean;
     quotaBytes: number;
     state: "active" | "scheduled-delete" | "deleted";
     deleteUndoUntil: number | null;
@@ -125,7 +126,7 @@ async function workspaceRequest<T>(path: string, method: "GET" | "POST" | "PUT",
         throw error;
     }
 }
-export async function createWorkspace(retentionMode: WorkspaceRetentionMode = "three-days", startRuntime = true) {
+export async function createWorkspace(retentionMode: WorkspaceRetentionMode = "three-days", startRuntime = true, keepAlive = false) {
     return workspaceRequest<{
         id: string;
         terminalAccessToken: string;
@@ -133,7 +134,7 @@ export async function createWorkspace(retentionMode: WorkspaceRetentionMode = "t
         retentionMode: WorkspaceRetentionMode;
         quotaBytes: number;
         tier: string;
-    }>("/execute/sessions", "POST", { retentionMode, startRuntime });
+    }> ("/execute/sessions", "POST", { retentionMode, startRuntime, keepAlive });
 }
 export async function installWorkspaceDependencies(sessionId: string, manager: "npm" | "pnpm" | "yarn", mode: "install" | "ci", cwd = "/", packages: string[] = []) {
     return workspaceRequest<ExecResult & { lifecycleScriptsDisabled: boolean }>(`/execute/sessions/${encodeURIComponent(sessionId)}/dependencies`, "POST", { manager, mode, cwd, packages });
@@ -196,6 +197,9 @@ export async function heartbeatWorkspace(sessionId: string, retentionMode: Works
 }
 export async function setWorkspaceRetention(sessionId: string, retentionMode: WorkspaceRetentionMode) {
     return workspaceRequest<WorkspaceLifecycle>(`/execute/sessions/${encodeURIComponent(sessionId)}/retention`, "PUT", { retentionMode });
+}
+export async function setWorkspaceKeepAlive(sessionId: string, keepAlive: boolean) {
+    return workspaceRequest<WorkspaceLifecycle>(`/execute/sessions/${encodeURIComponent(sessionId)}/retention`, "PUT", { keepAlive });
 }
 export async function scheduleWorkspaceDelete(sessionId: string) {
     return workspaceRequest<WorkspaceLifecycle>(`/execute/sessions/${encodeURIComponent(sessionId)}/delete`, "POST");

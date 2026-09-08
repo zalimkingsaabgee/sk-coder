@@ -12,6 +12,7 @@ export type WorkspaceRecord = {
     lastHeartbeatAt: number;
     expiresAt: number;
     retentionMode: RetentionMode;
+    keepAlive: boolean;
     quotaBytes: number;
     state: "active" | "scheduled-delete" | "deleted";
     deleteUndoUntil: number | null;
@@ -49,7 +50,7 @@ function queuePersist() {
     writeQueue = writeQueue.then(() => persistRegistry());
     return writeQueue;
 }
-export async function createWorkspaceRecord(id: string, quotaBytes: number, retentionMode: RetentionMode = "three-days", terminalAccessHash = "") {
+export async function createWorkspaceRecord(id: string, quotaBytes: number, retentionMode: RetentionMode = "three-days", terminalAccessHash = "", keepAlive = false) {
     const registry = await readRegistry();
     const now = Date.now();
     const duration = retentionMode === "four-hours" ? SCHEDULED_DELETE_HOURS : RETAINED_WORKSPACE_HOURS;
@@ -60,6 +61,7 @@ export async function createWorkspaceRecord(id: string, quotaBytes: number, rete
         lastHeartbeatAt: now,
         expiresAt: now + duration * 60 * 60 * 1000,
         retentionMode,
+        keepAlive,
         quotaBytes,
         state: "active",
         deleteUndoUntil: null,
@@ -93,6 +95,16 @@ export async function setWorkspaceRetention(id: string, retentionMode: Retention
     record.expiresAt = now + duration * 60 * 60 * 1000;
     record.state = "active";
     record.deleteUndoUntil = null;
+    await queuePersist();
+    return record;
+}
+export async function setWorkspaceKeepAlive(id: string, keepAlive: boolean) {
+    const registry = await readRegistry();
+    const record = registry.records.find((item) => item.id === id);
+    if (!record)
+        return null;
+    record.keepAlive = keepAlive;
+    record.lastHeartbeatAt = Date.now();
     await queuePersist();
     return record;
 }

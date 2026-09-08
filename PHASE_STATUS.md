@@ -147,7 +147,7 @@ AI-created files appear in browser FileExplorer but may not immediately appear i
 ---
 
 ### Phase 6: Backend Connection Hardening
-**Status**: PARTIALLY DONE (connection states implemented; keep-active option pending)
+**Status**: IMPLEMENTED; BROWSER ACCEPTANCE PENDING
 **Estimated Time**: 60 min  
 **Complexity**: Medium
 
@@ -189,7 +189,7 @@ Backend connection not robust enough; users see ambiguous connection states.
 - [x] Update connection messages for startup, suspension, authorization, and network retry
 - [x] Resume an inactive workspace through the existing recovery path
 - [x] Preserve terminal transcript and pending input behavior across reconnects
-- [ ] Add UI toggle for "Keep workspace active"
+- [x] Add UI toggle for "Keep workspace active"
 - [x] Add connection status display with recovery progress and retry count
 - [ ] Browser acceptance test: network dropout scenario
 - [ ] Browser acceptance test: idle workspace recovery
