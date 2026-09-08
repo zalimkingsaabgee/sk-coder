@@ -1249,13 +1249,13 @@ export default function MultiTerminal() {
       </div>
 
       {activeType === "shell" && workspaceConnection !== "connected" && (<div className="terminal-workspace-notice" role="status">
-          {workspaceConnection === "checking" && "Checking SK Shell connection…"}
-          {workspaceConnection === "starting" && "Backend service is starting. Retrying SK Shell…"}
-          {workspaceConnection === "resuming" && "Workspace paused. Resuming your private workspace…"}
-          {workspaceConnection === "auth" && "Session expired. Creating a new workspace session…"}
-          {workspaceConnection === "waiting" && `Connection lost. Reconnecting${(reconnectAttemptsRef.current.get(activeTab) ?? 0) > 0 ? ` (attempt ${reconnectAttemptsRef.current.get(activeTab)})` : ""}…`}
-          {workspaceConnection === "offline" && "Workspace server is unavailable. Your browser project remains available while it retries."}
-          {workspaceConnection === "capacity" && "Server workspace capacity is full. Your project remains in browser storage and will retry when server space is available."}
+          {workspaceConnection === "checking" && "Connecting to your workspace…"}
+          {workspaceConnection === "starting" && "Your workspace is starting…"}
+          {workspaceConnection === "resuming" && "Resuming your workspace…"}
+          {workspaceConnection === "auth" && "Refreshing your workspace session…"}
+          {workspaceConnection === "waiting" && "Reconnecting to your workspace…"}
+          {workspaceConnection === "offline" && "Your workspace is temporarily unavailable. Your files remain safe in this browser while we retry."}
+          {workspaceConnection === "capacity" && "Your workspace is busy. We will retry automatically, and your files remain safe in this browser."}
         </div>)}
 
       <div className="terminal-output" ref={outputRef} onScroll={(event) => {

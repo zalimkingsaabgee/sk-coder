@@ -9,4 +9,8 @@ describe("backend endpoint resolution", () => {
     it("uses an explicit WebSocket endpoint when supplied", () => {
         expect(resolveWebSocketBase("https://backend.example.test/api", "wss://terminal.example.test/api/ws/terminal")).toBe("wss://terminal.example.test/api/ws/terminal");
     });
+
+    it("resolves a relative API base against the browser origin", () => {
+        expect(resolveWebSocketBase("/api", undefined, "https://app.medical4me.com")).toBe("wss://app.medical4me.com/api/ws/terminal");
+    });
 });
