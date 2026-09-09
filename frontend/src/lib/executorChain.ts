@@ -175,6 +175,7 @@ async function tryBackend(language: string, code: string, stdin = ""): Promise<E
         let response = await fetch(`${API_BASE}/execute`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "X-Device-Id": deviceId, ...(useWorkspace ? { "X-SK-Workspace-Access": workspaceAccess! } : {}) },
+            cache: "no-store",
             body: JSON.stringify({ language, code, stdin, ...(useWorkspace ? { sessionId } : {}) }),
             signal: AbortSignal.timeout(35000),
         });
@@ -184,6 +185,7 @@ async function tryBackend(language: string, code: string, stdin = ""): Promise<E
             response = await fetch(`${API_BASE}/execute`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "X-Device-Id": deviceId },
+                cache: "no-store",
                 body: JSON.stringify({ language, code, stdin }),
                 signal: AbortSignal.timeout(35000),
             });

@@ -71,7 +71,7 @@ function getHeaders(workspaceAccessOverride?: string) {
 }
 export async function isBackendAvailable(): Promise<boolean> {
     try {
-        const response = await fetch(`${BASE}/healthz`, { signal: AbortSignal.timeout(3000), headers: getHeaders() });
+        const response = await fetch(`${BASE}/healthz`, { cache: "no-store", signal: AbortSignal.timeout(3000), headers: getHeaders() });
         if (!response.ok)
             return false;
         const data = await response.json() as {
@@ -105,6 +105,7 @@ async function workspaceRequest<T>(path: string, method: "GET" | "POST" | "PUT",
         const response = await fetch(`${BASE}${path}`, {
             method,
             headers,
+            cache: "no-store",
             body: body === undefined ? undefined : JSON.stringify(body),
             signal: AbortSignal.timeout(30000),
         });
@@ -312,7 +313,7 @@ export async function getWorkspaceRuntimeStatus(): Promise<{
     ready: boolean;
 }> {
     try {
-        const response = await fetch(`${BASE}/execute/status`, { signal: AbortSignal.timeout(5000), headers: getHeaders() });
+        const response = await fetch(`${BASE}/execute/status`, { cache: "no-store", signal: AbortSignal.timeout(5000), headers: getHeaders() });
         if (!response.ok)
             return { ready: false };
         const data = await response.json() as {

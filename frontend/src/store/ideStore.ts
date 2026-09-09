@@ -842,6 +842,16 @@ export const useIDEStore = create<IDEState & IDEActions>()(persist((set, get) =>
         return {
             ...current,
             ...p,
+            settings: {
+                ...current.settings,
+                ...(p.settings ?? {}),
+                backend: { ...current.settings.backend, ...(p.settings?.backend ?? {}) },
+                editor: { ...current.settings.editor, ...(p.settings?.editor ?? {}) },
+                ai: { ...current.settings.ai, ...(p.settings?.ai ?? {}) },
+                storage: { ...current.settings.storage, ...(p.settings?.storage ?? {}) },
+                github: { ...current.settings.github, ...(p.settings?.github ?? {}) },
+                preview: { ...current.settings.preview, ...(p.settings?.preview ?? {}) },
+            },
             fileTree: restoredTree,
             flatFiles: map,
             expandedFolders: new Set(Array.isArray(p.expandedFolders) ? p.expandedFolders : []),
