@@ -48,7 +48,7 @@ Clone the repository into a stable host path and give your administrator account
 ```bash
 sudo mkdir -p /opt/sk-coder
 sudo chown "$USER":"$USER" /opt/sk-coder
-git clone https://github.com/RaoSaqlainM/sk-code-main.git /opt/sk-coder
+git clone https://github.com/zalimkingsaabgee/sk-coder.git /opt/sk-coder
 cd /opt/sk-coder
 sudo usermod -aG docker "$USER"
 ```

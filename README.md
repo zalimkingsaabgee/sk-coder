@@ -31,7 +31,7 @@ pnpm install
 pnpm run dev
 ```
 
-The frontend development server proxies `/api` and terminal WebSocket requests to `http://127.0.0.1:3003` by default. Set `VITE_API_PROXY_TARGET` only when the backend runs on a different local address.
+The frontend development server proxies `/api` and terminal WebSocket requests to `http://127.0.0.1:3001` by default. Set `VITE_API_PROXY_TARGET` only when the backend runs on a different local address.
 
 ## Production
 

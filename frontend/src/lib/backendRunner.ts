@@ -310,11 +310,9 @@ export async function getWorkspaceRuntimeStatus(): Promise<{
         if (!response.ok)
             return { ready: false };
         const data = await response.json() as {
-            status?: {
-                ready?: boolean;
-            };
+            ready?: boolean;
         };
-        return { ready: data.status?.ready === true };
+        return { ready: data.ready === true };
     }
     catch {
         return { ready: false };

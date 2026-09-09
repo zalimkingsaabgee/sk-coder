@@ -365,6 +365,12 @@ export default function AIChatPanel() {
                 else if (res.error === "configuration_error") {
                     addAIChatMessage({ role: "assistant", content: "The AI service responded, but the selected model or endpoint is not available. Review the provider endpoint and model in **Settings → AI Assistant**." });
                 }
+                else if (res.error === "credits_exhausted") {
+                    addAIChatMessage({ role: "assistant", content: "This provider has no remaining credits or has reached its spending limit. Check the provider billing settings, choose another model or provider, or connect free Puter AI in Settings → AI Assistant." });
+                }
+                else if (res.error === "rate_limited") {
+                    addAIChatMessage({ role: "assistant", content: "This provider is temporarily rate-limiting requests. Wait a moment and try again, or choose another provider in Settings → AI Assistant." });
+                }
                 else if (res.error === "expired") {
                     addAIChatMessage({ role: "assistant", content: "Your API usage limit has been reached. Please check your account." });
                 }
