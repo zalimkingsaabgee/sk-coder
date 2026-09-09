@@ -118,23 +118,22 @@ async function collectWorkspaceStageSources(nodes: FileNode[]): Promise<StageSou
     await collect(nodes);
     return files;
 }
-async function stageProjectToWorkspace(sessionId: string, nodes: FileNode[], onProgress: (completed: number, total: number) => void) {
+async function stageProjectToWorkspace(sessionId: string, nodes: FileNode[], onProgress: (completed: number, total: number) => void, workspaceAccess: string) {
     const sources = await collectWorkspaceStageSources(nodes);
-    const server = await getWorkspaceManifest(sessionId);
     const byPath = new Map(sources.map((source) => [normalizeWorkspaceStagePath(source.path), source]));
     const localManifest = sources.map((source) => ({ path: normalizeWorkspaceStagePath(source.path), size: source.blob.size, sha256: source.sha256 }));
-    const { changed: changedManifest, deletedPaths } = planWorkspaceDelta(localManifest, server.files);
-    const changed = changedManifest.map((entry) => byPath.get(entry.path)).filter((source): source is StageSource => Boolean(source));
-    if (changed.length === 0 && deletedPaths.length === 0) {
-        onProgress(0, 0);
-        return;
-    }
-    let stage = await beginWorkspaceStage(sessionId, changed.map((source) => ({ path: normalizeWorkspaceStagePath(source.path), size: source.blob.size, sha256: source.sha256 })), undefined, { baseRevision: server.revision, deletedPaths });
-    const total = changed.reduce((sum, source) => sum + source.blob.size, 0);
-    let completed = 0;
     for (let attempt = 0; attempt < 2; attempt++) {
+        const server = await getWorkspaceManifest(sessionId, workspaceAccess);
+        const { changed: changedManifest, deletedPaths } = planWorkspaceDelta(localManifest, server.files);
+        const changed = changedManifest.map((entry) => byPath.get(entry.path)).filter((source): source is StageSource => Boolean(source));
+        if (changed.length === 0 && deletedPaths.length === 0) {
+            onProgress(0, 0);
+            return;
+        }
+        const stage = await beginWorkspaceStage(sessionId, changed.map((source) => ({ path: normalizeWorkspaceStagePath(source.path), size: source.blob.size, sha256: source.sha256 })), undefined, { baseRevision: server.revision, deletedPaths }, workspaceAccess);
+        const total = changed.reduce((sum, source) => sum + source.blob.size, 0);
+        let completed = 0;
         try {
-            completed = 0;
             for (const file of stage.files) {
                 const source = byPath.get(file.path);
                 if (!source)
@@ -143,18 +142,17 @@ async function stageProjectToWorkspace(sessionId: string, nodes: FileNode[], onP
                 for (let offset = 0; offset < file.size; offset += stage.chunkBytes) {
                     const chunk = source.blob.slice(offset, Math.min(file.size, offset + stage.chunkBytes));
                     if (missing.has(offset))
-                        await uploadWorkspaceStageChunk(sessionId, stage.stageId, file.path, offset, chunk);
+                        await uploadWorkspaceStageChunk(sessionId, stage.stageId, file.path, offset, chunk, undefined, workspaceAccess);
                     completed += chunk.size;
                     onProgress(completed, total);
                 }
             }
-            await commitWorkspaceStage(sessionId, stage.stageId);
+            await commitWorkspaceStage(sessionId, stage.stageId, workspaceAccess);
             return;
         }
         catch (error) {
-            if (attempt === 1)
+            if (attempt === 1 || !/workspace changed on the server during staging|workspace changed on the server/i.test(error instanceof Error ? error.message : String(error)))
                 throw error;
-            stage = await getWorkspaceStageStatus(sessionId, stage.stageId);
         }
     }
 }
@@ -524,7 +522,8 @@ export default function MultiTerminal() {
                 localStorage.setItem("sk-coder-workspace-session-id", sessionId);
                 const dimensions = terminalDimensions();
                 socket?.resize(dimensions.cols, dimensions.rows);
-                void getWorkspaceLifecycle(sessionId).then(setWorkspaceLifecycle).catch(() => setWorkspaceLifecycle(null));
+                localStorage.setItem("sk-coder-workspace-terminal-access", terminalAccessToken!);
+                void getWorkspaceLifecycle(sessionId, terminalAccessToken).then(setWorkspaceLifecycle).catch(() => setWorkspaceLifecycle(null));
                 const treeRevision = workspaceTreeRevision(fileTree);
                 if (!needsWorkspaceStage(projectStagedTreeRef.current, treeRevision)) {
                     setWorkspaceConnection("connected");
@@ -533,7 +532,7 @@ export default function MultiTerminal() {
                 }
                 let staging = workspaceStagingFlightRef.current;
                 if (!isSameWorkspaceStagingFlight(staging, sessionId, treeRevision)) {
-                    const promise = stageProjectToWorkspace(sessionId, fileTree, () => undefined).then(() => {
+                    const promise = stageProjectToWorkspace(sessionId, fileTree, () => undefined, terminalAccessToken!).then(() => {
                         projectStagedTreeRef.current = treeRevision;
                         localStorage.setItem(workspaceStageRevisionKey(sessionId), treeRevision);
                     });
@@ -695,7 +694,7 @@ export default function MultiTerminal() {
         if (!workspaceLifecycle)
             return;
         const interval = window.setInterval(() => {
-            void heartbeatWorkspace(workspaceLifecycle.id, workspaceLifecycle.retentionMode)
+            void heartbeatWorkspace(workspaceLifecycle.id, workspaceLifecycle.retentionMode, projectTerminalAccessTokenRef.current ?? undefined)
                 .then(setWorkspaceLifecycle)
                 .catch(() => undefined);
         }, 30000);
@@ -853,7 +852,7 @@ export default function MultiTerminal() {
             try {
                 const treeRevision = workspaceTreeRevision(fileTree);
                 if (needsWorkspaceStage(projectStagedTreeRef.current, treeRevision)) {
-                    await stageProjectToWorkspace(lease.sessionId, fileTree, () => undefined);
+                    await stageProjectToWorkspace(lease.sessionId, fileTree, () => undefined, lease.terminalAccessToken);
                     projectStagedTreeRef.current = treeRevision;
                 }
                 if (cmd === "run") {

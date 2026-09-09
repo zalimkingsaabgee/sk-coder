@@ -94,7 +94,7 @@ async function ensureWholeWorkspace(retentionMode: WorkspaceRetentionMode) {
     const storedAccess = getStoredValue(ACCESS_KEY);
     if (storedId && storedAccess) {
         try {
-            const lifecycle = await getWorkspaceLifecycle(storedId);
+            const lifecycle = await getWorkspaceLifecycle(storedId, storedAccess);
             if (lifecycle.state === "active")
                 return storedId;
         }
@@ -114,13 +114,14 @@ export async function mirrorWholeWorkspace(nodes: FileNode[], retentionMode: Wor
         throw new Error("The server workspace is scheduled for deletion. Undo deletion before syncing or starting a server tool.");
     const sessionId = await ensureWholeWorkspace(retentionMode);
     const sources = await collectWholeWorkspaceSources(nodes);
-    const server = await getWorkspaceManifest(sessionId);
+    const workspaceAccess = getStoredValue(ACCESS_KEY) ?? undefined;
+    const server = await getWorkspaceManifest(sessionId, workspaceAccess);
     const byPath = new Map(sources.map((source) => [source.path, source]));
     const localManifest = sources.map((source) => ({ path: source.path, size: source.blob.size, sha256: source.sha256 }));
     const { changed, deletedPaths } = planWorkspaceDelta(localManifest, server.files);
     if (changed.length === 0 && deletedPaths.length === 0)
         return { sessionId, revision: server.revision, changedFiles: 0, deletedFiles: 0 };
-    let stage = await beginWorkspaceStage(sessionId, changed, undefined, { baseRevision: server.revision, deletedPaths });
+    let stage = await beginWorkspaceStage(sessionId, changed, undefined, { baseRevision: server.revision, deletedPaths }, workspaceAccess);
     for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
             for (const file of stage.files) {
@@ -132,17 +133,20 @@ export async function mirrorWholeWorkspace(nodes: FileNode[], retentionMode: Wor
                     if (!requiredOffsets.has(offset))
                         continue;
                     const chunk = source.blob.slice(offset, Math.min(file.size, offset + (stage.chunkBytes || STAGE_CHUNK_FALLBACK_BYTES)));
-                    await uploadWorkspaceStageChunk(sessionId, stage.stageId, file.path, offset, chunk);
+                    await uploadWorkspaceStageChunk(sessionId, stage.stageId, file.path, offset, chunk, undefined, workspaceAccess);
                 }
             }
-            const committed = await commitWorkspaceStage(sessionId, stage.stageId);
+            const committed = await commitWorkspaceStage(sessionId, stage.stageId, workspaceAccess);
             setStoredValue(`${STAGE_REVISION_PREFIX}${sessionId}`, String(committed.revision));
             return { sessionId, revision: committed.revision, changedFiles: changed.length, deletedFiles: deletedPaths.length };
         }
         catch (error) {
             if (attempt === 1)
                 throw error;
-            stage = await getWorkspaceStageStatus(sessionId, stage.stageId);
+            if (!/workspace changed on the server during staging|workspace changed on the server/i.test(error instanceof Error ? error.message : String(error)) || attempt === 1)
+                throw error;
+            const refreshed = await getWorkspaceManifest(sessionId, workspaceAccess);
+            stage = await beginWorkspaceStage(sessionId, changed, undefined, { baseRevision: refreshed.revision, deletedPaths }, workspaceAccess);
         }
     }
     throw new Error("Workspace staging did not complete.");

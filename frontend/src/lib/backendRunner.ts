@@ -193,14 +193,14 @@ export async function removeWebPreviewSession(id: string) {
     if (!response.ok && response.status !== 404)
         throw new Error((await response.json().catch(() => ({ error: response.statusText })) as { error?: string }).error || response.statusText);
 }
-export async function getWorkspaceLifecycle(sessionId: string) {
-    return workspaceRequest<WorkspaceLifecycle>(`/execute/sessions/${encodeURIComponent(sessionId)}`, "GET");
+export async function getWorkspaceLifecycle(sessionId: string, workspaceAccess?: string) {
+    return workspaceRequest<WorkspaceLifecycle>(`/execute/sessions/${encodeURIComponent(sessionId)}`, "GET", undefined, workspaceAccess);
 }
-export async function getWorkspaceManifest(sessionId: string) {
-    return workspaceRequest<WorkspaceManifest>(`/execute/sessions/${encodeURIComponent(sessionId)}/manifest`, "GET");
+export async function getWorkspaceManifest(sessionId: string, workspaceAccess?: string) {
+    return workspaceRequest<WorkspaceManifest>(`/execute/sessions/${encodeURIComponent(sessionId)}/manifest`, "GET", undefined, workspaceAccess);
 }
-export async function heartbeatWorkspace(sessionId: string, retentionMode: WorkspaceRetentionMode) {
-    return workspaceRequest<WorkspaceLifecycle>(`/execute/sessions/${encodeURIComponent(sessionId)}/heartbeat`, "POST", { retentionMode });
+export async function heartbeatWorkspace(sessionId: string, retentionMode: WorkspaceRetentionMode, workspaceAccess?: string) {
+    return workspaceRequest<WorkspaceLifecycle>(`/execute/sessions/${encodeURIComponent(sessionId)}/heartbeat`, "POST", { retentionMode }, workspaceAccess);
 }
 export async function setWorkspaceRetention(sessionId: string, retentionMode: WorkspaceRetentionMode) {
     return workspaceRequest<WorkspaceLifecycle>(`/execute/sessions/${encodeURIComponent(sessionId)}/retention`, "PUT", { retentionMode });
@@ -260,8 +260,8 @@ export async function syncWorkspaceFiles(sessionId: string, files: WorkspaceFile
 export async function beginWorkspaceStage(sessionId: string, files: WorkspaceStageFile[], stageId?: string, options?: { baseRevision?: number; deletedPaths?: string[] }, workspaceAccess?: string) {
     return workspaceRequest<WorkspaceStageStatus>(`/execute/sessions/${encodeURIComponent(sessionId)}/stage/manifest`, "POST", { files, ...(stageId ? { stageId } : {}), ...(options?.baseRevision !== undefined ? { baseRevision: options.baseRevision } : {}), ...(options?.deletedPaths?.length ? { deletedPaths: options.deletedPaths } : {}) }, workspaceAccess);
 }
-export async function getWorkspaceStageStatus(sessionId: string, stageId: string) {
-    return workspaceRequest<WorkspaceStageStatus>(`/execute/sessions/${encodeURIComponent(sessionId)}/stage/${encodeURIComponent(stageId)}`, "GET");
+export async function getWorkspaceStageStatus(sessionId: string, stageId: string, workspaceAccess?: string) {
+    return workspaceRequest<WorkspaceStageStatus>(`/execute/sessions/${encodeURIComponent(sessionId)}/stage/${encodeURIComponent(stageId)}`, "GET", undefined, workspaceAccess);
 }
 export async function uploadWorkspaceStageChunk(sessionId: string, stageId: string, path: string, offset: number, chunk: Blob, checksum?: string, workspaceAccess?: string) {
     const response = await fetch(`${BASE}/execute/sessions/${encodeURIComponent(sessionId)}/stage/${encodeURIComponent(stageId)}/chunk`, {
