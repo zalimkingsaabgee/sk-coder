@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { useIDEStore } from "@/store/ideStore";
 import { execute, getExecutionTierLabel, type ExecResponse } from "@/lib/executorChain";
-import { beginWorkspaceStage, commitWorkspaceStage, createTerminalWebSocket, createWorkspace, getWorkspaceLifecycle, getWorkspaceManifest, getWorkspaceRuntimeStatus, getWorkspaceStageStatus, heartbeatWorkspace, installWorkspaceDependencies, isBackendAvailable, type WorkspaceFilePayload, type WorkspaceLifecycle, uploadWorkspaceStageChunk } from "@/lib/backendRunner";
+import { beginWorkspaceStage, clearWorkspaceLease, commitWorkspaceStage, createTerminalWebSocket, createWorkspace, getWorkspaceLifecycle, getWorkspaceManifest, getWorkspaceRuntimeStatus, getWorkspaceStageStatus, heartbeatWorkspace, installWorkspaceDependencies, isBackendAvailable, type WorkspaceFilePayload, type WorkspaceLifecycle, uploadWorkspaceStageChunk } from "@/lib/backendRunner";
 import { sendAIMessage, buildSystemPrompt } from "@/lib/aiClient";
 import { sendPuterChat } from "@/lib/puterClient";
 import { parseErrors } from "@/components/ide/ErrorPanel";
@@ -620,8 +620,23 @@ export default function MultiTerminal() {
                     setWorkspaceConnection("offline");
                     return;
                 }
-                setWorkspaceConnection("waiting");
-                queueTabReconnect(tabId, currentLease.sessionId);
+                void getWorkspaceLifecycle(currentLease.sessionId)
+                    .then(() => {
+                    setWorkspaceConnection("waiting");
+                    queueTabReconnect(tabId, currentLease.sessionId);
+                })
+                    .catch((error) => {
+                    const message = error instanceof Error ? error.message : String(error);
+                    if (/workspace access|unauthorized|forbidden|401|403|not found|expired/i.test(message)) {
+                        clearWorkspaceLease();
+                        terminalLeasesRef.current.delete(tabId);
+                        persistTerminalLeases();
+                        recoverShell(tabId);
+                        return;
+                    }
+                    setWorkspaceConnection("waiting");
+                    queueTabReconnect(tabId, currentLease.sessionId);
+                });
             },
         }, savedSessionId || undefined, tabId, terminalAccessToken || undefined);
         terminalSocketsRef.current.set(tabId, socket);
@@ -742,7 +757,6 @@ export default function MultiTerminal() {
             const c = cmd;
             const d = delay;
             setTimeout(() => {
-                addLine(tabId, "input", `$ ${c}`);
                 handleShell(tabId, c).catch(() => { });
             }, d);
             delay += 120;
@@ -868,7 +882,6 @@ export default function MultiTerminal() {
                 const dependencyInstall = parseDependencyInstall(input);
                 if (dependencyInstall) {
                     updateState(tabId, { running: true });
-                    addLine(tabId, "input", `$ ${input}`);
                     try {
                         const result = await installWorkspaceDependencies(lease.sessionId, dependencyInstall.manager, dependencyInstall.mode, cwd, dependencyInstall.packages);
                         if (result.stdout)

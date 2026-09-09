@@ -1354,7 +1354,7 @@ export default function ApkEditor() {
                 <label style={{ display: "grid", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>Version name<input value={activePackageDetails.versionName} onChange={(event) => updatePackageDetail("versionName", event.target.value)} /></label>
                 <label style={{ display: "grid", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>Minimum SDK<input inputMode="numeric" value={activePackageDetails.minSdkVersion} onChange={(event) => updatePackageDetail("minSdkVersion", event.target.value)} /></label>
                 <label style={{ display: "grid", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>Target SDK<input inputMode="numeric" value={activePackageDetails.targetSdkVersion} onChange={(event) => updatePackageDetail("targetSdkVersion", event.target.value)} /></label>
-              </div> : <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 11 }}>Metadata is unavailable in this package.</div>}
+              </div> : <div style={{ display: "grid", gap: "0.4rem", textAlign: "center", color: "var(--text-muted)", fontSize: 11 }}>Binary package metadata is not readable in the browser. Choose Decode resources and manifest to inspect and edit it.</div>}
             </div></div>
             <footer className="apk-dialog-footer"><button className="btn btn-primary" onClick={() => void (manifestDetails ? saveEdit() : saveLocalDraft())} disabled={saving || loading}>Save</button><button className="btn btn-ghost" onClick={() => { setShowReleaseReview(false); void repackage(); }} disabled={loading}>Export</button><button className="btn btn-ghost" onClick={() => setShowReleaseReview(false)}>Close</button></footer>
           </section>

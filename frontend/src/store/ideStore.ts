@@ -767,15 +767,7 @@ export const useIDEStore = create<IDEState & IDEActions>()(persist((set, get) =>
         const { fileTree, settings } = get();
         if (!settings.backend.enabled)
             return;
-        set({ transferStatus: { kind: "stage", stage: "File saved locally, syncing to workspace...", completed: 0, total: 0 } });
-        scheduleWholeWorkspaceMirror(fileTree, "three-days", 1800, (status) => {
-            if (status === "syncing")
-                set({ transferStatus: { kind: "stage", stage: "Syncing workspace files...", completed: 0, total: 0 } });
-            else if (status === "waiting")
-                set({ transferStatus: { kind: "stage", stage: "Workspace sync waiting for capacity or connection...", completed: 0, total: 0 } });
-            else if (get().transferStatus?.kind === "stage")
-                set({ transferStatus: null });
-        });
+        scheduleWholeWorkspaceMirror(fileTree, "three-days", 1800);
     },
     loadWorkspaceFromBackend: async () => {
         const restoredTree = await restoreIndexedContent(get().fileTree);

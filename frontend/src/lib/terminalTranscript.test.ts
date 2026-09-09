@@ -5,6 +5,7 @@ describe("terminal transcript prompt handling", () => {
     it("recognizes a clean Linux workspace prompt", () => {
         expect(isCleanLinuxPrompt("node@sk-coder:~$ ")).toBe(true);
         expect(isCleanLinuxPrompt("node@sk-coder:/workspace/project$ ")).toBe(true);
+        expect(isCleanLinuxPrompt("$ ")).toBe(true);
         expect(isCleanLinuxPrompt("browser-terminal-lifecycle-ok")).toBe(false);
     });
 

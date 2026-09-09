@@ -61,6 +61,10 @@ function getDeviceId(): string {
     }
     return id;
 }
+export function clearWorkspaceLease() {
+    localStorage.removeItem("sk-coder-workspace-session-id");
+    localStorage.removeItem("sk-coder-workspace-terminal-access");
+}
 function getHeaders(workspaceAccessOverride?: string) {
     const workspaceAccess = workspaceAccessOverride ?? localStorage.getItem("sk-coder-workspace-terminal-access");
     return { "Content-Type": "application/json", "X-Device-Id": getDeviceId(), ...(workspaceAccess ? { "X-SK-Workspace-Access": workspaceAccess } : {}) };
@@ -109,6 +113,8 @@ async function workspaceRequest<T>(path: string, method: "GET" | "POST" | "PUT",
         };
         if (!response.ok) {
             const message = data.error || response.statusText;
+            if (response.status === 401 || response.status === 403)
+                clearWorkspaceLease();
             if (shouldQueueOperation(message)) {
                 enqueueQueuedOperation("workspaceRequest", { path, method, body, headers });
                 throw new Error("The workspace request was queued because the backend is busy or temporarily unavailable. It will retry automatically when capacity is available.");
