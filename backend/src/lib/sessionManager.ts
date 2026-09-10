@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import Docker from "dockerode";
 import { PassThrough, type Duplex } from "node:stream";
-import { chmod, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, chown, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { dirname, join, normalize, relative, resolve } from "node:path";
@@ -212,10 +212,12 @@ async function ensureWritableWorkspaceDirectory(rootPath: string, targetPath: st
         throw new Error("Workspace path escapes the session root.");
     let current = rootPath;
     await mkdir(current, { recursive: true, mode: 0o755 });
+    await chown(current, 1000, 1000);
     await chmod(current, 0o755);
     for (const part of requested.split(/[\\/]+/).filter(Boolean)) {
         current = join(current, part);
         await mkdir(current, { recursive: true, mode: 0o755 });
+        await chown(current, 1000, 1000);
         await chmod(current, 0o755);
     }
 }
@@ -350,6 +352,7 @@ async function runtimeIsActive(id: string) {
 }
 async function startWorkspaceRuntime(id: string, workspacePath: string) {
     await mkdir(workspacePath, { recursive: true, mode: 0o755 });
+    await chown(workspacePath, 1000, 1000);
     await chmod(workspacePath, 0o755);
     const result = await run("docker", [
         "run", "-d", "--rm", "--name", containerNameFor(id), "--label", "skcoder.workspace=true", "--label", `skcoder.workspace-id=${id}`, "--label", `skcoder.instance=${BACKEND_INSTANCE_ID}`, "--network", WORKSPACE_NETWORK_MODE, "--memory", "768m", "--memory-swap", "768m", "--cpus", "1", "--pids-limit", "256",
@@ -420,8 +423,9 @@ export async function createWorkspaceSession(options?: {
         const retentionMode = options?.retentionMode === "four-hours" ? "four-hours" : "three-days";
         try {
             const record = await createWorkspaceRecord(id, SESSION_MAX_BYTES, retentionMode, hashTerminalAccessToken(terminalAccessToken), options?.keepAlive === true);
-await mkdir(workspacePath, { recursive: true, mode: 0o755 });
-    await chmod(workspacePath, 0o755);
+        await mkdir(workspacePath, { recursive: true, mode: 0o755 });
+        await chown(workspacePath, 1000, 1000);
+        await chmod(workspacePath, 0o755);
             await createRuntimeOperation({ id: workplaceOperationId(id), ownerId: id, kind: "workplace", resources: [`path:${workspacePath}`], reservationBytes: WORKSPACE_INITIAL_RESERVATION_BYTES, expiresAt: record.expiresAt });
             if (startRuntime) {
                 await startWorkspaceRuntime(id, workspacePath);
@@ -708,6 +712,7 @@ export async function installWorkspaceDependencies(id: string, manager: Dependen
     const requested = safeRelativePath(cwd);
     const workspaceCwd = requested === "." ? "/workspace" : `/workspace/${requested.replaceAll("\\", "/")}`;
     await mkdir(PACKAGE_CACHE_ROOT, { recursive: true, mode: 0o755 });
+    await chown(PACKAGE_CACHE_ROOT, 1000, 1000);
     await chmod(PACKAGE_CACHE_ROOT, 0o755);
     const permissionResult = await run("docker", [
         "run", "--rm", "--network", "none", "--user", "0:0", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--volumes-from", session.containerName,
@@ -752,6 +757,7 @@ export async function runCodeInWorkspace(id: string, language: string, code: str
         throw new Error("Program input exceeds the 64 KB source-run limit.");
     await reserveWorkspaceGrowth(id, Buffer.byteLength(code));
     await mkdir(hostRunPath, { recursive: true, mode: 0o755 });
+    await chown(hostRunPath, 1000, 1000);
     await writeFile(join(hostRunPath, selected.filename), code, "utf8");
     try {
         return await runWorkspaceCommand(id, selected.command, runPath, stdin);
@@ -787,6 +793,7 @@ export function runEphemeralCode(language: string, code: string, stdin = "") {
     const containerName = `skcoder-runner-${id.replaceAll("-", "")}`;
     try {
         await mkdir(root, { recursive: true, mode: 0o755 });
+        await chown(root, 1000, 1000);
         await chmod(root, 0o755);
         await writeFile(join(root, profile.filename), code, "utf8");
         await createRuntimeOperation({ id: `runner:${id}`, ownerId: id, kind: "runner", resources: [`container:${containerName}`, `path:${root}`], expiresAt: Date.now() + COMMAND_TIMEOUT_MS + 60_000 });

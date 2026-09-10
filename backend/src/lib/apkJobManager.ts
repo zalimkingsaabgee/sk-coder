@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { chown, copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { basename, normalize, relative, resolve } from "node:path";
 import { APK_JOB_EXPANSION_MULTIPLIER, APK_JOB_MAX_COUNT, APK_JOB_MEMORY_MB, APK_JOB_MIN_RESERVATION_BYTES, APK_JOB_TIMEOUT_MS, APK_JOB_TTL_MS, APK_RUNTIME_IMAGE, BACKEND_INSTANCE_ID, STAGING_MAX_BYTES, WORKSPACE_ROOT } from "./backendConfig.js";
 import { authorizeTerminalSession, ensureDockerReady, getWorkspaceSession } from "./sessionManager.js";
@@ -166,6 +166,9 @@ export async function createApkJob(deviceId: string, workspaceAccess: string | n
     const jobPath = jobPathFor(id);
     await mkdir(resolve(jobPath, "input"), { recursive: true, mode: 0o755 });
     await mkdir(resolve(jobPath, "output"), { recursive: true, mode: 0o755 });
+    await chown(jobPath, 1000, 1000);
+    await chown(resolve(jobPath, "input"), 1000, 1000);
+    await chown(resolve(jobPath, "output"), 1000, 1000);
     await copyFile(source, resolve(jobPath, "input", "source.apk"));
     const job: ApkJob = { id, deviceId, workspaceSessionId: input.workspaceSessionId, sourcePath, mode: input.mode, status: "queued", createdAt: Date.now(), expiresAt: Date.now() + APK_JOB_TTL_MS, jobPath, log: "Queued isolated APK job.", outputPath: null, error: null, artifactSigned: false };
     await createRuntimeOperation({ id: `apk:${job.id}`, ownerId: job.id, kind: "apk", resources: [`path:${jobPath}`, `container:${containerNameFor(job.id)}`, `workspace:${job.workspaceSessionId}`], reservationBytes, expiresAt: job.expiresAt });
