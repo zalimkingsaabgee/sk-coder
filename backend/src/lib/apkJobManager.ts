@@ -164,8 +164,8 @@ export async function createApkJob(deviceId: string, workspaceAccess: string | n
     const reservationBytes = Math.min(STAGING_MAX_BYTES, Math.max(APK_JOB_MIN_RESERVATION_BYTES, sourceInfo.size * APK_JOB_EXPANSION_MULTIPLIER));
     const id = randomUUID();
     const jobPath = jobPathFor(id);
-    await mkdir(resolve(jobPath, "input"), { recursive: true, mode: 0o777 });
-    await mkdir(resolve(jobPath, "output"), { recursive: true, mode: 0o777 });
+    await mkdir(resolve(jobPath, "input"), { recursive: true, mode: 0o755 });
+    await mkdir(resolve(jobPath, "output"), { recursive: true, mode: 0o755 });
     await copyFile(source, resolve(jobPath, "input", "source.apk"));
     const job: ApkJob = { id, deviceId, workspaceSessionId: input.workspaceSessionId, sourcePath, mode: input.mode, status: "queued", createdAt: Date.now(), expiresAt: Date.now() + APK_JOB_TTL_MS, jobPath, log: "Queued isolated APK job.", outputPath: null, error: null, artifactSigned: false };
     await createRuntimeOperation({ id: `apk:${job.id}`, ownerId: job.id, kind: "apk", resources: [`path:${jobPath}`, `container:${containerNameFor(job.id)}`, `workspace:${job.workspaceSessionId}`], reservationBytes, expiresAt: job.expiresAt });
