@@ -199,6 +199,7 @@ curl -fsS http://127.0.0.1:8080/api/healthz
 - ✅ Nginx WebSocket timeouts 3600s + keepalive_timeout 3600s
 - ✅ chmod 777→755 security fixes (no more multi-user file leaks)
 - ✅ ALLOWED_ORIGINS configured for your actual domain, not localhost
+- ✅ **AI chat/terminal with capability-aware routing** (see Section 7.8)
 
 ---
 
