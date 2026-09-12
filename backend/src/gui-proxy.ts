@@ -1,3 +1,4 @@
+import { logger } from "./lib/logger.js";
 import net from "node:net";
 import { request as httpRequest, type IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
